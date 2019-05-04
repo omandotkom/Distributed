@@ -16,6 +16,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Client {
 
@@ -28,7 +30,7 @@ public class Client {
 class MainClass {
 
     private final int receiverPort = 8090;
-    private final int senderPort = 9000;
+
     private ArrayList<Process> neighbor;
     private ThreadEventListener list;
 
@@ -250,10 +252,10 @@ class Listener implements Runnable {
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             while (listening) {
-                new KKMultiServerThread(serverSocket.accept()).start();
+                new KKMultiServerThread(serverSocket.accept(), ev).start();
             }
         } catch (IOException e) {
-            ev.print("Could not listen on port " + port);
+            ev.print("(1f) error Could not listen on port " + port);
             System.exit(-1);
         }
     }
@@ -263,33 +265,26 @@ class Listener implements Runnable {
 class KKMultiServerThread extends Thread {
 
     private Socket socket = null;
-    
-    public KKMultiServerThread(Socket socket) {
+    private ThreadEventListener ev;
+
+    public KKMultiServerThread(Socket socket, ThreadEventListener e) {
         super("KKMultiServerThread");
         this.socket = socket;
+        ev = e;
     }
 
     public void run() {
 
-        try (
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                BufferedReader in = new BufferedReader(
-                        new InputStreamReader(
-                                socket.getInputStream()));) {
-            String inputLine, outputLine;
-            System.out.println("outputnya : " + in.readLine());
-            //out.println(outputLine);
-
-            /*            while ((inputLine = in.readLine()) != null) {
-                outputLine = kkp.processInput(inputLine);
-                out.println(outputLine);
-                if (outputLine.equals("Bye")) {
-                    break;
-                }
-            }*/
+        try {
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+            ev.print("Cost from source is : " + in.readObject());
             socket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+            in.close();
+        } catch (IOException ioe) {
+            ev.print("(1e) error " + ioe.getMessage());
+        } catch (ClassNotFoundException ex) {
+            ev.print("(1e) error " + ex.getMessage());
         }
+
     }
 }
