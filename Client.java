@@ -1,7 +1,10 @@
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -13,7 +16,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Scanner;
-
 
 public class Client {
 
@@ -163,43 +165,7 @@ class Process implements Serializable {
 
 }
 
-class Listener implements Runnable {
-
-    private ServerSocket receiverSocket;
-    private ThreadEventListener ev;
-    private int port;
-
-    public Listener(ThreadEventListener e, int p) {
-        this.ev = e;
-        this.port = p;
-        ev.print("Receiver listens on " + NetworkUtil.getCurrentEnvironmentNetworkIp() + ":" + port);
-    }
-
-    @Override
-    public void run() {
-        try {
-            while (true) {
-                receiverSocket = new ServerSocket(port);
-                ev.print("Menunggu kiriman...");
-                Socket sock = receiverSocket.accept();
-                ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
-                String message = ois.readObject().toString();
-                ev.print("Isi pesan adalah " + message);
-                receiverSocket.close();
-                sock.close();
-                ois.close();
-            }
-        } catch (IOException ex) {
-            ev.print("(1d) Receiver error " + ex.getMessage());
-        } catch (ClassNotFoundException ex) {
-            ev.print("(1e) Receiver error " + ex.getMessage());
-
-        }
-    }
-
-}
 //Network Util digunakan untuk mendapatkan ip address sekarang dalam jaringan.
-
 final class NetworkUtil {
 
     /**
@@ -261,5 +227,69 @@ final class NetworkUtil {
             }
         }
         return currentHostIpAddress;
+    }
+}
+
+/*---------------------------------------SERVER--------------------------------------------*/
+class Listener implements Runnable {
+
+    private ServerSocket receiverSocket;
+    private ThreadEventListener ev;
+    private int port;
+
+    public Listener(ThreadEventListener e, int p) {
+        this.ev = e;
+        this.port = p;
+        ev.print("Receiver listens on " + NetworkUtil.getCurrentEnvironmentNetworkIp() + ":" + port);
+    }
+
+    @Override
+    public void run() {
+        ev.print("Listening...");
+        boolean listening = true;
+
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            while (listening) {
+                new KKMultiServerThread(serverSocket.accept()).start();
+            }
+        } catch (IOException e) {
+            ev.print("Could not listen on port " + port);
+            System.exit(-1);
+        }
+    }
+
+}
+
+class KKMultiServerThread extends Thread {
+
+    private Socket socket = null;
+    
+    public KKMultiServerThread(Socket socket) {
+        super("KKMultiServerThread");
+        this.socket = socket;
+    }
+
+    public void run() {
+
+        try (
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                BufferedReader in = new BufferedReader(
+                        new InputStreamReader(
+                                socket.getInputStream()));) {
+            String inputLine, outputLine;
+            System.out.println("outputnya : " + in.readLine());
+            //out.println(outputLine);
+
+            /*            while ((inputLine = in.readLine()) != null) {
+                outputLine = kkp.processInput(inputLine);
+                out.println(outputLine);
+                if (outputLine.equals("Bye")) {
+                    break;
+                }
+            }*/
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
