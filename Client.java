@@ -1,13 +1,12 @@
 
-import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.net.SocketException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -188,10 +187,15 @@ class Listener implements Runnable, Status {
             while (true) {
                 ev.print("Menunggu kiriman...");
                 Socket sock = receiverSocket.accept();
-                
+                ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
+                String message = ois.readObject().toString();
+                ev.print("Isi pesan adalah " + message);
             }
         } catch (IOException ex) {
             ev.print("error " + ex.getMessage());
+        } catch (ClassNotFoundException ex) {
+            ev.print("error " + ex.getMessage());
+           
         }
     }
     
