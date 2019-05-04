@@ -107,6 +107,8 @@ class MainClass {
             ObjectOutputStream oos = new ObjectOutputStream(p.getSocket().getOutputStream());
             list.print("Mengirim data ke node " + p.getName());
             oos.writeObject(p.getCost());
+            oos.flush();
+            oos.close();
         } catch (IOException ex) {
             list.print("error " + ex.getMessage());
         }
@@ -189,13 +191,16 @@ class Listener implements Runnable, Status {
                 ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
                 String message = ois.readObject().toString();
                 ev.print("Isi pesan adalah " + message);
+                //receiverSocket.close();
+                //sock.close();
+                
                 ois.close();
 
             }
         } catch (IOException ex) {
-            ev.print("error " + ex.getMessage());
+            ev.print("Receiver error " + ex.getMessage());
         } catch (ClassNotFoundException ex) {
-            ev.print("error " + ex.getMessage());
+            ev.print("Receiver error " + ex.getMessage());
 
         }
     }
