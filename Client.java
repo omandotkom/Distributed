@@ -65,13 +65,12 @@ class MainClass {
                             String ipAddr = args[2];
 
                             list.print("Menyambungkan ke " + ipAddr + ":" + receiverPort);
+                            //connect to neighbor
                             Socket connect = new Socket(ipAddr, receiverPort);
-                            /*SocketAddress sa = connect.getRemoteSocketAddress();
-                        connect.connect(sa, 10);
-                             */
+
                             if (connect.isConnected()) {
                                 list.print("Berhasil tersambung.");
-                                Process p = new Process(pName,connect);
+                                Process p = new Process(pName, connect);
                                 neighbor.add(p);
                                 list.print(p.toString() + " ditambahkan sebagai tetangga");
                             } else {
@@ -153,8 +152,10 @@ class Listener implements Runnable, Status {
     public void run() {
         try {
             receiverSocket = new ServerSocket(port);
-            ev.print("Menunggu kiriman...");
-            Socket sock = receiverSocket.accept();
+            while (true) {
+                ev.print("Menunggu kiriman...");
+                Socket sock = receiverSocket.accept();
+            }
         } catch (IOException ex) {
             ev.print("error " + ex.getMessage());
         }
