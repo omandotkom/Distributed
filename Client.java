@@ -26,11 +26,12 @@ class MainClass {
 
     private final int receiverPort = 8090;
     private final int senderPort = 9000;
-    private ArrayList<Socket> neighbor;
+    private ArrayList<Process> neighbor;
 
     public void startAlgorithm() {
-        //initializing event listener
-        neighbor = new ArrayList<Socket>();
+        boolean isExit = false;
+//initializing event listener
+        neighbor = new ArrayList<Process>();
         ThreadEventListener list = new ThreadEventListener() {
             @Override
             public void print(String m) {
@@ -45,36 +46,49 @@ class MainClass {
         //run the thread
         thread.start();
         list.print("Current ip address : " + NetworkUtil.getCurrentEnvironmentNetworkIp());
-        //read user input
-        Scanner scan = new Scanner(System.in);
-        String cmd = scan.nextLine();
-        //split each command by whitespce
-        String args[] = cmd.split(" ");
-        switch (args[0]) {
-            case "connect":
-                //check if 3 argument is passed
-                if (args.length > 1) {
-                    try {
-                        //correct
-                        String ipAddr = args[1];
 
-                        list.print("Menyambungkan ke " + ipAddr + ":" + receiverPort);
-                        Socket connect = new Socket(ipAddr, receiverPort);
-                        /*SocketAddress sa = connect.getRemoteSocketAddress();
+        while (!isExit) {
+
+//read user input
+            Scanner scan = new Scanner(System.in);
+            System.out.print("command > ");
+            String cmd = scan.nextLine();
+            //split each command by whitespce
+            String args[] = cmd.split(" ");
+            switch (args[0]) {
+                case "connect":
+                    //check if 3 argument is passed
+                    if (args.length > 2) {
+                        try {
+                            //correct
+                            String pName = args[1];
+                            String ipAddr = args[2];
+
+                            list.print("Menyambungkan ke " + ipAddr + ":" + receiverPort);
+                            Socket connect = new Socket(ipAddr, receiverPort);
+                            /*SocketAddress sa = connect.getRemoteSocketAddress();
                         connect.connect(sa, 10);
-                        */
-                        if (connect.isConnected()) {
-                            list.print("Berhasil tersambung.");
-                        } else {
-                            list.print("Gagal tersambung.");
+                             */
+                            if (connect.isConnected()) {
+                                list.print("Berhasil tersambung.");
+                                Process p = new Process(pName,connect);
+                                neighbor.add(p);
+                                list.print(p.toString() + " ditambahkan sebagai tetangga");
+                            } else {
+                                list.print("Gagal tersambung.");
+                            }
+                        } catch (IOException ex) {
+                            list.print("error " + ex.getMessage());
                         }
-                    } catch (IOException ex) {
-                        list.print("error " + ex.getMessage());
+                    } else {
+                        list.print("Error ex : connect 192.168.100.16 20");
                     }
-                } else {
-                    list.print("Error ex : connect 192.168.100.16 20");
+                    break;
+                case "q": {
+                    isExit = true;
                 }
                 break;
+            }
         }
     }
 }
@@ -82,9 +96,48 @@ class MainClass {
 interface ThreadEventListener {
 
     void print(String m);
+
 }
 
-class Listener implements Runnable {
+interface Status {
+
+    void close();
+}
+
+class Process {
+
+    private String name;
+    private Socket s;
+
+    public Process(String name, Socket s) {
+        this.name = name;
+        this.s = s;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Socket getS() {
+        return s;
+    }
+
+    public void setS(Socket s) {
+        this.s = s;
+    }
+
+    @Override
+    public String toString() {
+        return this.name + s.getInetAddress().getHostAddress() + ":" + s.getPort();
+    }
+
+}
+
+class Listener implements Runnable, Status {
 
     private ServerSocket receiverSocket;
     private ThreadEventListener ev;
@@ -104,6 +157,24 @@ class Listener implements Runnable {
             Socket sock = receiverSocket.accept();
         } catch (IOException ex) {
             ev.print("error " + ex.getMessage());
+        }
+    }
+
+    @Override
+    public void close() {
+        //trying to close server
+        if (receiverSocket != null) {
+            if (!receiverSocket.isClosed()) {
+                try {
+                    ev.print("Menutuput socket receiver...");
+                    receiverSocket.close();
+                    if (receiverSocket.isClosed()) {
+                        ev.print("Berhasil menutup.");
+                    }
+                } catch (IOException ex) {
+                    ev.print("Gagal menutup receiver socket, " + ex.getMessage());
+                }
+            }
         }
     }
 
