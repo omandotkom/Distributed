@@ -15,7 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Client {
-    
+
     public static void main(String[] args) {
         MainClass main = new MainClass();
         main.startAlgorithm();
@@ -23,11 +23,11 @@ public class Client {
 }
 
 class MainClass {
-    
+
     private final int receiverPort = 8090;
     private final int senderPort = 9000;
     private ArrayList<Socket> neighbor;
-    
+
     public void startAlgorithm() {
         //initializing event listener
         neighbor = new ArrayList<Socket>();
@@ -38,7 +38,7 @@ class MainClass {
                 LocalDateTime now = LocalDateTime.now();
                 System.out.println(dtf.format(now) + "> " + m);
             }
-            
+
         };
         //assign thread with listener and port
         Thread thread = new Thread(new Listener(list, receiverPort));
@@ -57,12 +57,12 @@ class MainClass {
                     try {
                         //correct
                         String ipAddr = args[1];
-                        
-                        list.print("Menyambungkan ke "+ipAddr + ":" + receiverPort);
+
+                        list.print("Menyambungkan ke " + ipAddr + ":" + receiverPort);
                         Socket connect = new Socket(ipAddr, receiverPort);
-                        SocketAddress sa = connect.getRemoteSocketAddress();
+                        /*SocketAddress sa = connect.getRemoteSocketAddress();
                         connect.connect(sa, 10);
-                        
+                        */
                         if (connect.isConnected()) {
                             list.print("Berhasil tersambung.");
                         } else {
@@ -80,22 +80,22 @@ class MainClass {
 }
 
 interface ThreadEventListener {
-    
+
     void print(String m);
 }
 
 class Listener implements Runnable {
-    
+
     private ServerSocket receiverSocket;
     private ThreadEventListener ev;
     private int port;
-    
+
     public Listener(ThreadEventListener e, int p) {
         this.ev = e;
         this.port = p;
         ev.print("Receiver listens on " + NetworkUtil.getCurrentEnvironmentNetworkIp() + ":" + port);
     }
-    
+
     @Override
     public void run() {
         try {
@@ -106,7 +106,7 @@ class Listener implements Runnable {
             ev.print("error " + ex.getMessage());
         }
     }
-    
+
 }
 //Network Util digunakan untuk mendapatkan ip address sekarang dalam jaringan.
 
@@ -147,7 +147,7 @@ final class NetworkUtil {
             Enumeration<NetworkInterface> netInterfaces = null;
             try {
                 netInterfaces = NetworkInterface.getNetworkInterfaces();
-                
+
                 while (netInterfaces.hasMoreElements()) {
                     NetworkInterface ni = netInterfaces.nextElement();
                     Enumeration<InetAddress> address = ni.getInetAddresses();
@@ -164,7 +164,7 @@ final class NetworkUtil {
                 if (currentHostIpAddress == null) {
                     currentHostIpAddress = "127.0.0.1";
                 }
-                
+
             } catch (SocketException e) {
 //                log.error("Somehow we have a socket error acquiring the host IP... Using loopback instead...");
                 currentHostIpAddress = "127.0.0.1";
