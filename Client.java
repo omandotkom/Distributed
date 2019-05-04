@@ -185,11 +185,9 @@ class Listener implements Runnable {
                 ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
                 String message = ois.readObject().toString();
                 ev.print("Isi pesan adalah " + message);
-                //receiverSocket.close();
-                //sock.close();
-
+                receiverSocket.close();
+                sock.close();
                 ois.close();
-
             }
         } catch (IOException ex) {
             ev.print("(1d) Receiver error " + ex.getMessage());
