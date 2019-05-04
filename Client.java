@@ -1,10 +1,7 @@
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.PrintWriter;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -16,8 +13,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Scanner;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class Client {
 
@@ -105,16 +100,23 @@ class MainClass {
     }
 
     private void send(Process p) {
-        try {
 
-            ObjectOutputStream oos = new ObjectOutputStream(p.getSocket().getOutputStream());
-            list.print("Mengirim data ke node " + p.getName());
-            oos.writeObject(p.getCost());
-            oos.flush();
-            oos.close();
-        } catch (IOException ex) {
-            list.print("(1c) error " + ex.getMessage());
-        }
+        Thread threadSender = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    ObjectOutputStream oos = new ObjectOutputStream(p.getSocket().getOutputStream());
+                    list.print("Mengirim data ke node " + p.getName());
+                    oos.writeObject(p.getCost());
+                    oos.flush();
+                    oos.close();
+                } catch (IOException ioe) {
+                    list.print("1cbc error " + ioe.getMessage());
+                }
+            }
+
+        };
+        threadSender.start();
     }
 }
 
@@ -170,36 +172,8 @@ class Process implements Serializable {
 //Network Util digunakan untuk mendapatkan ip address sekarang dalam jaringan.
 final class NetworkUtil {
 
-    /**
-     * The current host IP address is the IP address from the device.
-     */
     private static String currentHostIpAddress;
 
-    /**
-     * @return the current environment's IP address, taking into account the
-     * Internet connection to any of the available machine's Network interfaces.
-     * Examples of the outputs can be in octats or in IPV6 format.      <pre>
-     *         ==> wlan0
-     *
-     *         fec0:0:0:9:213:e8ff:fef1:b717%4
-     *         siteLocal: true
-     *         isLoopback: false isIPV6: true
-     *         130.212.150.216 <<<<<<<<<<<------------- This is the one we want to grab so that we can.
-     *         siteLocal: false                          address the DSP on the network.
-     *         isLoopback: false
-     *         isIPV6: false
-     *
-     *         ==> lo
-     *         0:0:0:0:0:0:0:1%1
-     *         siteLocal: false
-     *         isLoopback: true
-     *         isIPV6: true
-     *         127.0.0.1
-     *         siteLocal: false
-     *         isLoopback: true
-     *         isIPV6: false
-     * </pre>
-     */
     public static String getCurrentEnvironmentNetworkIp() {
         if (currentHostIpAddress == null) {
             Enumeration<NetworkInterface> netInterfaces = null;
@@ -235,7 +209,6 @@ final class NetworkUtil {
 /*---------------------------------------SERVER--------------------------------------------*/
 class Listener implements Runnable {
 
-    private ServerSocket receiverSocket;
     private ThreadEventListener ev;
     private int port;
 
