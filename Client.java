@@ -13,8 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Scanner;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
 
 public class Client {
 
@@ -79,10 +78,10 @@ class MainClass {
                                 list.print("Gagal tersambung.");
                             }
                         } catch (IOException ex) {
-                            list.print("error " + ex.getMessage());
+                            list.print("(1a) error " + ex.getMessage());
                         }
                     } else {
-                        list.print("Error ex : connect 192.168.100.16 20");
+                        list.print("(1b) Error ex : connect 192.168.100.16 20");
                     }
                     break;
                 case "q": {
@@ -110,7 +109,7 @@ class MainClass {
             oos.flush();
             oos.close();
         } catch (IOException ex) {
-            list.print("error " + ex.getMessage());
+            list.print("(1c) error " + ex.getMessage());
         }
     }
 }
@@ -119,11 +118,6 @@ interface ThreadEventListener {
 
     void print(String m);
 
-}
-
-interface Status {
-
-    void close();
 }
 
 class Process implements Serializable {
@@ -169,7 +163,7 @@ class Process implements Serializable {
 
 }
 
-class Listener implements Runnable, Status {
+class Listener implements Runnable {
 
     private ServerSocket receiverSocket;
     private ThreadEventListener ev;
@@ -183,7 +177,7 @@ class Listener implements Runnable, Status {
 
     @Override
     public void run() {
-        try {            
+        try {
             while (true) {
                 receiverSocket = new ServerSocket(port);
                 ev.print("Menunggu kiriman...");
@@ -193,33 +187,15 @@ class Listener implements Runnable, Status {
                 ev.print("Isi pesan adalah " + message);
                 //receiverSocket.close();
                 //sock.close();
-                
+
                 ois.close();
 
             }
         } catch (IOException ex) {
-            ev.print("Receiver error " + ex.getMessage());
+            ev.print("(1d) Receiver error " + ex.getMessage());
         } catch (ClassNotFoundException ex) {
-            ev.print("Receiver error " + ex.getMessage());
+            ev.print("(1e) Receiver error " + ex.getMessage());
 
-        }
-    }
-
-    @Override
-    public void close() {
-        //trying to close server
-        if (receiverSocket != null) {
-            if (!receiverSocket.isClosed()) {
-                try {
-                    ev.print("Menutuput socket receiver...");
-                    receiverSocket.close();
-                    if (receiverSocket.isClosed()) {
-                        ev.print("Berhasil menutup.");
-                    }
-                } catch (IOException ex) {
-                    ev.print("Gagal menutup receiver socket, " + ex.getMessage());
-                }
-            }
         }
     }
 
