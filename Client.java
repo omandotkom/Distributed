@@ -15,7 +15,7 @@ import java.util.Enumeration;
 import java.util.Scanner;
 
 public class Client {
-    
+
     public static void main(String[] args) {
         System.out.print("Masukkan nama node sekarang : ");
         Scanner scan = new Scanner(System.in);
@@ -26,16 +26,16 @@ public class Client {
 }
 
 class MainClass {
-    
+
     private final int receiverPort = 8090;
     private String thisNode;
     private ArrayList<Process> neighbor;
     private ThreadEventListener list;
-    
+
     public MainClass(String thisNode) {
         this.thisNode = thisNode;
     }
-    
+
     public void startAlgorithm() {
         boolean isExit = false;
 //initializing event listener
@@ -47,14 +47,14 @@ class MainClass {
                 LocalDateTime now = LocalDateTime.now();
                 System.out.println(dtf.format(now) + "> " + m);
             }
-            
+
         };
         //assign thread with listener and port
         Thread thread = new Thread(new Listener(list, receiverPort));
         //run the thread
         thread.start();
         list.print("Current ip address : " + NetworkUtil.getCurrentEnvironmentNetworkIp());
-        
+
         while (!isExit) {
 
 //read user input
@@ -77,7 +77,8 @@ class MainClass {
                             Socket connect = new Socket(ipAddr, receiverPort);
                             if (connect.isConnected()) {
                                 list.print("Berhasil tersambung.");
-                                Process p = new Process(pName, connect, cost, thisNode);
+                                Process p = new Process(pName, connect.getInetAddress().getHostName(), cost, thisNode);
+                                p.setSocket(connect);
                                 neighbor.add(p);
                                 list.print(p.toString() + " ditambahkan sebagai tetangga");
                             } else {
@@ -104,7 +105,7 @@ class MainClass {
                     } else {
                         list.print("Belum ada node tetangga");
                     }
-                    
+
                 }
                 break;
                 default:
@@ -113,82 +114,105 @@ class MainClass {
             }
         }
     }
-    
+
     private void send(Process p) {
         //create new thread
         Thread threadSender = new Thread() {
             @Override
             public void run() {
                 try {
+                    ArrayList<Node> nodeList = new ArrayList<Node>();
+                    neighbor.forEach((p) -> {
+
+                        nodeList.add(new Node(p.getName(), p.getSocket().getInetAddress().getHostAddress(), 8090, p.getSource()));
+                    });
                     ObjectOutputStream oos = new ObjectOutputStream(p.getSocket().getOutputStream());
                     list.print("Mengirim data ke node " + p.getName());
-                    oos.writeObject(neighbor);
+                    oos.writeObject(nodeList);
                     oos.flush();
                     oos.close();
                 } catch (IOException ioe) {
                     list.print("1cbc error " + ioe.getMessage());
                 }
             }
-            
+
         };
         threadSender.start();
     }
 }
 
 interface ThreadEventListener {
-    
+
     void print(String m);
-    
+
 }
 
-class Process implements Serializable {
-    
+class Node implements Serializable {
+
     private String name;
-    private Socket s;
-    private int cost;
+    private String ip;
+    private int port;
     private String source;
-    
-    public Process(String name, Socket s, int cost, String src) {
+
+    public Node(String name, String ip, int port, String source) {
         this.name = name;
-        this.s = s;
-        this.cost = cost;
-        this.source = src;
+        this.ip = ip;
+        this.port = port;
+        this.source = source;
     }
-    
-    public String getSource() {
-        return source;
-    }
-    
-    public int getCost() {
-        return cost;
-    }
-    
+
     public String getName() {
         return name;
     }
-    
+
+    public String getIp() {
+        return ip;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+}
+
+class Process extends Node {
+
+    private Socket s;
+
+    public Process(String name, String ip, int port, String source) {
+        super(name, ip, port, source);
+    }
+
     public Socket getSocket() {
         return s;
     }
-    
+
+    public void setSocket(Socket s) {
+        this.s = s;
+    }
+
     @Override
     public String toString() {
-        return this.name + s.getInetAddress().getHostAddress() + ":" + s.getPort();
+        return super.getName() + " " + s.getInetAddress().getHostAddress() + ":" + s.getPort();
     }
-    
+
 }
 
 //Network Util digunakan untuk mendapatkan ip address sekarang dalam jaringan.
 final class NetworkUtil {
-    
+
     private static String currentHostIpAddress;
-    
+
     public static String getCurrentEnvironmentNetworkIp() {
         if (currentHostIpAddress == null) {
             Enumeration<NetworkInterface> netInterfaces = null;
             try {
                 netInterfaces = NetworkInterface.getNetworkInterfaces();
-                
+
                 while (netInterfaces.hasMoreElements()) {
                     NetworkInterface ni = netInterfaces.nextElement();
                     Enumeration<InetAddress> address = ni.getInetAddresses();
@@ -205,7 +229,7 @@ final class NetworkUtil {
                 if (currentHostIpAddress == null) {
                     currentHostIpAddress = "127.0.0.1";
                 }
-                
+
             } catch (SocketException e) {
 //                log.error("Somehow we have a socket error acquiring the host IP... Using loopback instead...");
                 currentHostIpAddress = "127.0.0.1";
@@ -217,21 +241,21 @@ final class NetworkUtil {
 
 /*---------------------------------------SERVER--------------------------------------------*/
 class Listener implements Runnable {
-    
+
     private ThreadEventListener ev;
     private int port;
-    
+
     public Listener(ThreadEventListener e, int p) {
         this.ev = e;
         this.port = p;
         ev.print("Receiver listens on " + NetworkUtil.getCurrentEnvironmentNetworkIp() + ":" + port);
     }
-    
+
     @Override
     public void run() {
         ev.print("Listening...");
         boolean listening = true;
-        
+
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             while (listening) {
                 new KKMultiServerThread(serverSocket.accept(), ev).start();
@@ -241,27 +265,28 @@ class Listener implements Runnable {
             System.exit(-1);
         }
     }
-    
+
 }
 
 class KKMultiServerThread extends Thread {
-    
+
     private Socket socket = null;
     private ThreadEventListener ev;
-    private ArrayList<Process> neighbor;
-    
+    private ArrayList<Node> nodeList;
+
     public KKMultiServerThread(Socket socket, ThreadEventListener e) {
         super("MultiServer");
         this.socket = socket;
         ev = e;
     }
-    
+
     public void run() {
-        
+
         try {
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-            neighbor = (ArrayList<Process>) in.readObject();
-            ev.print("node size :" + neighbor.size());
+            nodeList = (ArrayList<Node>) in.readObject();
+            ev.print("node size :" + nodeList.size());
+            ev.print(nodeList.get(0).getSource());
             socket.close();
             in.close();
         } catch (IOException ioe) {
@@ -269,6 +294,6 @@ class KKMultiServerThread extends Thread {
         } catch (ClassNotFoundException ex) {
             ev.print("(1e) error " + ex.getMessage());
         }
-        
+
     }
 }
