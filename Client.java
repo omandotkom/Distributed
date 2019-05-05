@@ -4,10 +4,13 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -72,12 +75,21 @@ class MainClass {
                             String pName = args[1];
                             String ipAddr = args[2];
                             int cost = Integer.valueOf(args[3]);
-                            list.print("Menyambungkan ke " + ipAddr + ":" + receiverPort);
+                            list.print("Menyambungkan ke " + ipAddr + ":" + receiverPort + " (t/o 5 detik)");
                             //connect to neighbor
-                            Socket connect = new Socket(ipAddr, receiverPort);
+
+                            SocketAddress adr = new InetSocketAddress(ipAddr, receiverPort);
+
+                            Socket connect = new Socket();
+                            try {
+                                connect.connect(adr, 5000);
+                            } catch (SocketTimeoutException ste) {
+                                list.print("1ce error " + ste.getMessage());
+                            }
+
                             if (connect.isConnected()) {
                                 list.print("Berhasil tersambung.");
-                                Process p = new Process(pName, connect.getInetAddress().getHostName(), cost, thisNode);
+                                Process p = new Process(pName, connect.getInetAddress().getHostName(), receiverPort, cost);
                                 p.setSocket(connect);
                                 neighbor.add(p);
                                 list.print(p.toString() + " ditambahkan sebagai tetangga");
@@ -123,8 +135,7 @@ class MainClass {
                 try {
                     ArrayList<Node> nodeList = new ArrayList<Node>();
                     neighbor.forEach((p) -> {
-
-                        nodeList.add(new Node(p.getName(), p.getSocket().getInetAddress().getHostAddress(), 8090, p.getSource()));
+                        nodeList.add(p.toNode());
                     });
                     ObjectOutputStream oos = new ObjectOutputStream(p.getSocket().getOutputStream());
                     list.print("Mengirim data ke node " + p.getName());
@@ -153,12 +164,18 @@ class Node implements Serializable {
     private String ip;
     private int port;
     private String source;
+    private int cost;
 
-    public Node(String name, String ip, int port, String source) {
+    public Node(String name, String ip, int port, int cost) {
         this.name = name;
         this.ip = ip;
         this.port = port;
         this.source = source;
+        this.cost = cost;
+    }
+
+    public int getCost() {
+        return cost;
     }
 
     public String getName() {
@@ -183,8 +200,8 @@ class Process extends Node {
 
     private Socket s;
 
-    public Process(String name, String ip, int port, String source) {
-        super(name, ip, port, source);
+    public Process(String name, String ip, int port, int cost) {
+        super(name, ip, port, cost);
     }
 
     public Socket getSocket() {
@@ -193,6 +210,10 @@ class Process extends Node {
 
     public void setSocket(Socket s) {
         this.s = s;
+    }
+
+    public Node toNode() {
+        return this;
     }
 
     @Override
@@ -286,13 +307,18 @@ class KKMultiServerThread extends Thread {
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
             nodeList = (ArrayList<Node>) in.readObject();
             ev.print("node size :" + nodeList.size());
-            ev.print(nodeList.get(0).getSource());
+            int i = 0;
+            for (Node n : nodeList) {
+                i++;
+                ev.print("cost " + i + n.getCost());
+            }
+
             socket.close();
             in.close();
         } catch (IOException ioe) {
             ev.print("(1e) error " + ioe.getMessage());
         } catch (ClassNotFoundException ex) {
-            ev.print("(1e) error " + ex.getMessage());
+            ev.print("(1xrt) error " + ex.getMessage());
         }
 
     }
