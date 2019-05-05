@@ -213,7 +213,8 @@ class Process extends Node {
     }
 
     public Node toNode() {
-        return this;
+        Node n =new Node(super.getName(),super.getIp(),super.getPort(),super.getCost());
+        return n;
     }
 
     @Override
