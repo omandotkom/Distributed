@@ -20,6 +20,7 @@ import java.util.Scanner;
 public class Client {
 
     public static void main(String[] args) {
+
         System.out.print("Masukkan nama node sekarang : ");
         Scanner scan = new Scanner(System.in);
         String cmd = scan.nextLine();
@@ -34,9 +35,24 @@ class MainClass {
     private String thisNode;
     private ArrayList<Process> neighbor;
     private ThreadEventListener list;
+    private static ArrayList<Record> table;
 
     public MainClass(String thisNode) {
         this.thisNode = thisNode;
+        table = new ArrayList<Record>();
+        //set max size
+
+    }
+
+    private boolean addToTable(Record r) {
+        if (table.size() < 6) {
+            //max is 5 record
+            table.add(r);
+            return true;
+        } else {
+
+            return false;
+        }
     }
 
     public void startAlgorithm() {
@@ -50,7 +66,6 @@ class MainClass {
                 LocalDateTime now = LocalDateTime.now();
                 System.out.println(dtf.format(now) + "> " + m);
             }
-
         };
         //assign thread with listener and port
         Thread thread = new Thread(new Listener(list, receiverPort));
@@ -60,7 +75,7 @@ class MainClass {
 
         while (!isExit) {
 
-//read user input
+            //read user input
             Scanner scan = new Scanner(System.in);
             System.out.print("command > ");
             String cmd = scan.nextLine();
@@ -112,6 +127,10 @@ class MainClass {
                     if (!neighbor.isEmpty()) {
                         for (Process p : neighbor) {
                             //send to all neighbors
+                            Record record = new Record();
+                            record.setFrom(thisNode);
+                            record.setTo(p.getName());
+                            record.setDistance(p.getCost());
                             send(p);
                         }
                     } else {
@@ -127,19 +146,24 @@ class MainClass {
         }
     }
 
+    private boolean searchinTable(String to) {
+        for (Record record : table) {
+            if (record.getTo().equals(to)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private void send(Process p) {
         //create new thread
         Thread threadSender = new Thread() {
             @Override
             public void run() {
                 try {
-                    ArrayList<Node> nodeList = new ArrayList<Node>();
-                    neighbor.forEach((p) -> {
-                        nodeList.add(p.toNode());
-                    });
                     ObjectOutputStream oos = new ObjectOutputStream(p.getSocket().getOutputStream());
                     list.print("Mengirim data ke node " + p.getName());
-                    oos.writeObject(nodeList);
+                    oos.writeObject(table);
                     oos.flush();
                     oos.close();
                 } catch (IOException ioe) {
@@ -213,7 +237,7 @@ class Process extends Node {
     }
 
     public Node toNode() {
-        Node n =new Node(super.getName(),super.getIp(),super.getPort(),super.getCost());
+        Node n = new Node(super.getName(), super.getIp(), super.getPort(), super.getCost());
         return n;
     }
 
@@ -294,7 +318,7 @@ class KKMultiServerThread extends Thread {
 
     private Socket socket = null;
     private ThreadEventListener ev;
-    private ArrayList<Node> nodeList;
+    private ArrayList<Record> table;
 
     public KKMultiServerThread(Socket socket, ThreadEventListener e) {
         super("MultiServer");
@@ -306,14 +330,13 @@ class KKMultiServerThread extends Thread {
 
         try {
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-            nodeList = (ArrayList<Node>) in.readObject();
-            ev.print("node size :" + nodeList.size());
+            table = (ArrayList<Record>) in.readObject();
             int i = 0;
-            for (Node n : nodeList) {
+            for (Record r : table) {
                 i++;
-                ev.print("cost " + i + n.getCost());
+                ev.print(r.toString());
             }
-
+            
             socket.close();
             in.close();
         } catch (IOException ioe) {
@@ -323,4 +346,42 @@ class KKMultiServerThread extends Thread {
         }
 
     }
+
+}
+
+class Record implements Serializable {
+
+    private String from;
+    private String to;
+    private int distance;
+
+    public String getFrom() {
+        return from;
+    }
+
+    public void setFrom(String from) {
+        this.from = from;
+    }
+
+    public String getTo() {
+        return to;
+    }
+
+    public void setTo(String to) {
+        this.to = to;
+    }
+
+    public int getDistance() {
+        return distance;
+    }
+
+    public void setDistance(int distance) {
+        this.distance = distance;
+    }
+
+    @Override
+    public String toString() {
+        return "Record{" + "from=" + from + ", to=" + to + ", distance=" + distance + '}';
+    }
+
 }
