@@ -131,6 +131,7 @@ class MainClass {
                             record.setFrom(thisNode);
                             record.setTo(p.getName());
                             record.setDistance(p.getCost());
+                            table.add(record);
                             send(p);
                         }
                     } else {
