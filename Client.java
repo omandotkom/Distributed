@@ -16,6 +16,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Client {
 
@@ -24,9 +26,11 @@ public class Client {
         System.out.print("Masukkan nama node sekarang : ");
         Scanner scan = new Scanner(System.in);
         String cmd = scan.nextLine();
+        cmd = cmd.toUpperCase();
         MainClass main = new MainClass(cmd);
         main.startAlgorithm();
     }
+
 }
 
 class MainClass {
@@ -35,7 +39,7 @@ class MainClass {
     private String thisNode;
     private ArrayList<Process> neighbor;
     private ThreadEventListener list;
-    private static ArrayList<Record> table;
+    private ArrayList<Record> table;
 
     public MainClass(String thisNode) {
         this.thisNode = thisNode;
@@ -107,7 +111,7 @@ class MainClass {
                                 Process p = new Process(pName, connect.getInetAddress().getHostName(), receiverPort, cost);
                                 p.setSocket(connect);
                                 neighbor.add(p);
-                                list.print(p.toString() + " ditambahkan sebagai tetangga");
+                                list.print(p.toString() + " ditambahkan sebagai tetangga (" + neighbor.size() + ")");
                             } else {
                                 list.print("Gagal tersambung.");
                             }
@@ -122,17 +126,30 @@ class MainClass {
                     isExit = true;
                 }
                 break;
+                case "":
+                    break;
+                case " ":
+                    break;
                 case "send": {
                     //send to all neighbor
                     if (!neighbor.isEmpty()) {
+                        list.print("Mengirim dari node " + thisNode);
                         for (Process p : neighbor) {
                             //send to all neighbors
-                            Record record = new Record();
-                            record.setFrom(thisNode);
-                            record.setTo(p.getName());
-                            record.setDistance(p.getCost());
-                            table.add(record);
-                            send(p);
+
+                            if (thisNode.equals("A")) {
+                                //if it is starting point
+                                table.clear();
+                                Record record = new Record();
+                                record.setFrom(thisNode);
+                                record.setTo(p.getName());
+                                record.setDistance(p.getCost());
+                                table.add(record);
+                                list.print(String.valueOf(table.size()));
+                                list.print(table.get(0).toString());
+
+                            }
+                            send(p, table);
                         }
                     } else {
                         list.print("Belum ada node tetangga");
@@ -156,24 +173,18 @@ class MainClass {
         return true;
     }
 
-    private void send(Process p) {
-        //create new thread
-        Thread threadSender = new Thread() {
-            @Override
-            public void run() {
-                try {
-                    ObjectOutputStream oos = new ObjectOutputStream(p.getSocket().getOutputStream());
-                    list.print("Mengirim data ke node " + p.getName());
-                    oos.writeObject(table);
-                    oos.flush();
-                    oos.close();
-                } catch (IOException ioe) {
-                    list.print("1cbc error " + ioe.getMessage());
-                }
-            }
+    private void send(Process p, ArrayList<Record> t) {
 
-        };
-        threadSender.start();
+        try {
+            ObjectOutputStream oos = new ObjectOutputStream(p.getSocket().getOutputStream());
+            list.print("Mengirim data ke node " + p.getName());
+            oos.writeObject(t);
+            oos.flush();
+            //oos.close();
+        } catch (IOException ioe) {
+            list.print("1cbc error " + ioe.getMessage());
+        }
+
     }
 }
 
@@ -291,59 +302,81 @@ class Listener implements Runnable {
 
     private ThreadEventListener ev;
     private int port;
+    private ServerSocket serverSocket;
+    private ObjectInputStream in;
 
     public Listener(ThreadEventListener e, int p) {
-        this.ev = e;
-        this.port = p;
-        ev.print("Receiver listens on " + NetworkUtil.getCurrentEnvironmentNetworkIp() + ":" + port);
-    }
+        try {
+            this.ev = e;
+            this.port = p;
+            serverSocket = new ServerSocket(port);
 
-    @Override
-    public void run() {
-        ev.print("Listening...");
-        boolean listening = true;
+            ev.print("Receiver listens on " + NetworkUtil.getCurrentEnvironmentNetworkIp() + ":" + port);
 
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            while (listening) {
-                new KKMultiServerThread(serverSocket.accept(), ev).start();
-            }
-        } catch (IOException e) {
+        } catch (IOException ex) {
             ev.print("(1f) error Could not listen on port " + port);
             System.exit(-1);
         }
     }
 
+    @Override
+    public void run() {
+
+        boolean listening = true;
+        /*
+            try (ServerSocket serverSocket = new ServerSocket(port)) {
+                ev.print("Listening...");
+                while (listening) {
+                    new MultiServerThread(serverSocket.accept(), ev).start();
+                }*/
+        while (listening) {
+            try {
+                ArrayList<Record> table;
+
+                in = new ObjectInputStream(serverSocket.accept().getInputStream());
+                table = (ArrayList<Record>) in.readObject();
+
+                MultiServerThread th = new MultiServerThread(table, ev);
+                th.start();
+            } catch (IOException ex) {
+                ev.print("(1fv) error Could not listen on port " + port);
+                System.exit(-1);
+            } catch (ClassNotFoundException ex) {
+                ev.print("(1fvd) error Could not listen on port " + port);
+                System.exit(-1);
+
+            }
+        }
+
+    }
+
 }
 
-class KKMultiServerThread extends Thread {
+class MultiServerThread extends Thread {
 
-    private Socket socket = null;
+    //private Socket socket = null;
     private ThreadEventListener ev;
     private ArrayList<Record> table;
 
-    public KKMultiServerThread(Socket socket, ThreadEventListener e) {
+    public MultiServerThread(ArrayList<Record> t, ThreadEventListener e) {
         super("MultiServer");
-        this.socket = socket;
+
+        //  this.socket = socket;
         ev = e;
+        table = t;
+
     }
 
     public void run() {
+        boolean listening = true;
+        while (listening) {
 
-        try {
-            ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-            table = (ArrayList<Record>) in.readObject();
-            int i = 0;
             for (Record r : table) {
-                i++;
                 ev.print(r.toString());
             }
-            
-            socket.close();
-            in.close();
-        } catch (IOException ioe) {
-            ev.print("(1e) error " + ioe.getMessage());
-        } catch (ClassNotFoundException ex) {
-            ev.print("(1xrt) error " + ex.getMessage());
+            listening = false;
+            //socket.close();
+            //in.close();
         }
 
     }
